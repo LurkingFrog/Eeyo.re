@@ -1,0 +1,25 @@
+# Build artifacts created by dune
+_build
+
+# Ignore the built book
+_book
+
+# Installation info from esy
+_esy
+
+# Installed Javascript modules from npm
+node_modules
+
+# Tailwind cache
+.tailwind_ppx_cache
+
+# The build directories for each of the main packages
+# These really should be compiled from source instead of saved in git
+**/lib/bs
+**/lib/ocaml
+.bsb.lock
+.merlin
+*.bs.js
+
+# This is my hack because npm link tends to corrupt on me. esy may fix it, but I haven't figured out how yet
+**/External

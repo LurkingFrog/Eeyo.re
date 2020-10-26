@@ -1,0 +1,27 @@
+{
+  "name": "eeyo.re",
+  "version": "0.1.0",
+  "keywords": [
+    "BuckleScript",
+    "ReasonReact",
+    "reason-react",
+    "errors",
+    "error handling"
+  ],
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "doc": "esy dune build @doc",
+    "build": "bsb -make-world",
+    "start": "bsb -make-world -w < /dev/zero",
+    "clean": "bsb -clean-world",
+    "webpack": "webpack -w",
+    "webpack:production": "NODE_ENV=production webpack",
+    "server": "webpack-dev-server",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bs-platform": "^8.3.1"
+  }
+}

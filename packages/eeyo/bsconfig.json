@@ -1,0 +1,26 @@
+{
+  "name": "eeyo.re",
+  "reason": {
+    "react-jsx": 3
+  },
+  "sources": {
+    "dir": "src",
+    "subdirs": true
+  },
+  "bsc-flags": ["-bs-super-errors", "-bs-no-version-header"],
+  "package-specs": [
+    {
+      "module": "commonjs",
+      "in-source": true
+    }
+  ],
+  "suffix": ".bs.js",
+  "namespace": true,
+  "bs-dependencies": [],
+  "refmt": 3,
+  "ppx-flags": [],
+  "warnings": {
+    "number": "+A-42-48-4",
+    "error": "+A-3-44-102-103"
+  }
+}
