@@ -59,11 +59,26 @@ let ifOk = (func, item) =>
   | Ok(item) => func(item)
   };
 
+/** Call a function only if is an error */
+let mapErr = (func, item) =>
+  switch (item) {
+  | Error(error) => func(error)
+  | _ => item
+  };
+
 /** Merge a list of Eeyo Results into a single list of values
  *
  * FIXME: Decide how to handle item.errorType for multiple errors
  */
-let flattenExn = (itemList: list(Belt.Result.t('a, t('b)))): Belt.Result.t(list('a), t('b)) => {
+let flattenExn =
+    (~groupErrorMsg=None, ~sep="\n  ", itemList: list(Belt.Result.t('a, t('b))))
+    : Belt.Result.t(list('a), t('b)) => {
+  let addGroupMessage = (error: t('b)) =>
+    switch (groupErrorMsg) {
+    | None => Error(error)
+    | Some(groupMsg) => Error({...error, msg: Printf.sprintf("%s\n%s", groupMsg, error.msg)})
+    };
+
   itemList
   |> List.fold_left(
        (acc, item) =>
@@ -84,19 +99,14 @@ let flattenExn = (itemList: list(Belt.Result.t('a, t('b)))): Belt.Result.t(list(
                | (_, Warn) => Warn
                | (Info, Info) => Info
                },
-             ~msg=Printf.sprintf("%s\n%s", acc.msg, item |> toStr),
+             ~msg=Printf.sprintf("%s%s%s", acc.msg, sep, item |> toStr),
              item.errorType,
            )
          },
        Ok([]),
-     );
+     )
+  |> mapErr(addGroupMessage);
 };
-
-let mapErr = (func, item) =>
-  switch (item) {
-  | Ok(value) => func(value)
-  | error => error
-  };
 
 let removeExn = (itemList: list(Belt.Result.t('a, t('b)))): list(Belt.Result.t('a, t('b))) =>
   itemList |> List.filter(Belt.Result.isOk);
@@ -116,3 +126,26 @@ let kleisliComposition =
 // Just adding a simple shortcut, since operator overloads don't seem to work for compositions
 // This really should be ">=>" instead of "|> kC"
 let kC = kleisliComposition;
+
+/** Run a list of functions that take the same paramater
+ *
+ * TODO: Can this be converted to a derive to insert
+ */
+let chain = (init, funcs) => {
+  List.fold_left((acc, func) => acc |> kC(func), init, funcs);
+};
+
+/** Strip the value from a result so we can combine like errors */
+let toUnit = value =>
+  switch (value) {
+  | Error(err) => Error(err)
+  | Ok(_) => Ok()
+  };
+
+/** A way to combine exceptions.
+ *
+ * Similar to flattenExn, but works when working with different types and want a list of all the errors
+*/
+let concatExn = (~header=?, ~sep="\n  ", first, next) => {
+  flattenExn(~groupErrorMsg=header, ~sep, [first |> toUnit, next |> toUnit]);
+};
