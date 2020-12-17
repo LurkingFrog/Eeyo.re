@@ -43,6 +43,55 @@ let err = (~level=Err, ~msg="", ~children=[||], errorType: 'a): Belt.Result.t('b
   Belt.Result.Error({level, msg, errorType, children});
 };
 
+/** Flatten two exceptions into one
+ *
+ * If a global error type isn't given, it will return the one defined in the left hand expression
+*/
+let mergeExn = (~groupErrorMsg=None, ~sep="\n  ", ~errorType=?, exn1, exn2) => {
+  let addGroupMessage = (error: t('b)) =>
+    switch (groupErrorMsg) {
+    | None => Error(error)
+    | Some(groupMsg) => Error({...error, msg: Printf.sprintf("%s\n%s", groupMsg, error.msg)})
+    };
+
+  let level =
+    switch (exn1.level, exn2.level) {
+    | (Panic, _)
+    | (_, Panic) => Panic
+    | (Err, _)
+    | (_, Err) => Err
+    | (Warn, _)
+    | (_, Warn) => Warn
+    | (Info, Info) => Info
+    };
+
+  err(
+    // Always elevate to the highest level of exception
+    ~level,
+    ~msg=Printf.sprintf("%s%s%s", exn1.msg, sep, exn2.msg),
+    switch (errorType) {
+    | Some(errType) => errType
+    | None => exn1.errorType
+    },
+  );
+};
+
+let apply = (~groupErrorMsg=None, func, param) => {
+  switch (func, param) {
+  | (Ok(f), Ok(x)) => f(x)
+  | (Error(f), Ok(_)) => Error(f)
+  | (Ok(_), Error(x)) => Error(x)
+  | (Error(f), Error(x)) => mergeExn(~groupErrorMsg, f, x)
+  };
+};
+
+/** Curry a function with its first paramater (for elevating a function to use with apply) */
+let curry = (func, param) =>
+  switch (param) {
+  | Ok(value) => Ok(func(value))
+  | Error(x) => Error(x)
+  };
+
 /** Get the value or else raise the error */
 let getExn = (result: Belt.Result.t('a, 'b)) =>
   switch (result) {
@@ -53,7 +102,8 @@ let getExn = (result: Belt.Result.t('a, 'b)) =>
     Js.Exn.raiseError(msg);
   };
 
-let ifOk = (func, item) =>
+/** Call a function if an item is Ok */
+let map = (func, item) =>
   switch (item) {
   | Belt.Result.Error(err) => Belt.Result.Error(err)
   | Ok(item) => func(item)
@@ -65,6 +115,8 @@ let mapErr = (func, item) =>
   | Error(error) => func(error)
   | _ => item
   };
+
+let mapOk = (func, item) => map(func, item);
 
 /** Merge a list of Eeyo Results into a single list of values
  *
@@ -86,22 +138,7 @@ let flattenExn =
          | (Belt.Result.Ok(acc), Belt.Result.Ok(item)) => Ok(List.append([item], acc))
          | (Belt.Result.Error(acc), Belt.Result.Ok(_)) => Belt.Result.Error(acc)
          | (Belt.Result.Ok(_), Belt.Result.Error(err)) => Belt.Result.Error(err)
-         | (Belt.Result.Error(acc), Belt.Result.Error(item)) =>
-           err(
-             // Always elevate to the highest level of exception
-             ~level=
-               switch (acc.level, item.level) {
-               | (Panic, _)
-               | (_, Panic) => Panic
-               | (Err, _)
-               | (_, Err) => Err
-               | (Warn, _)
-               | (_, Warn) => Warn
-               | (Info, Info) => Info
-               },
-             ~msg=Printf.sprintf("%s%s%s", acc.msg, sep, item |> toStr),
-             item.errorType,
-           )
+         | (Belt.Result.Error(acc), Belt.Result.Error(item)) => mergeExn(~sep, acc, item)
          },
        Ok([]),
      )
